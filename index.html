@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>System Error | Cyberpunk</title>
+  <style>
+    :root{
+      --bg:#06070b;
+      --grid:#0b1430;
+      --neon:#00ffd5;
+      --neon2:#ff2bd6;
+      --warn:#ffcc00;
+      --danger:#ff3355;
+      --text:#c9f8ff;
+      --muted:#7bd7e4;
+      --shadow: 0 0 12px rgba(0,255,213,.35), 0 0 40px rgba(255,43,214,.15);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: var(--mono);
+      color:var(--text);
+      background: radial-gradient(1200px 600px at 20% 10%, rgba(0,255,213,.10), transparent 50%),
+                  radial-gradient(900px 500px at 85% 25%, rgba(255,43,214,.10), transparent 55%),
+                  radial-gradient(700px 500px at 55% 95%, rgba(255,204,0,.06), transparent 60%),
+                  linear-gradient(180deg, #05060a 0%, #03040a 65%, #040510 100%);
+      overflow:hidden;
+    }
+
+    /* Subtle animated background grid */
+    .grid{
+      position:fixed; inset:-10%;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity:.35;
+      transform: perspective(900px) rotateX(62deg) translateY(-12%);
+      transform-origin: top;
+      filter: drop-shadow(0 0 24px rgba(0,255,213,.08));
+      animation: drift 10s linear infinite;
+      pointer-events:none;
+    }
+    @keyframes drift{
+      0%{ background-position: 0 0, 0 0; }
+      100%{ background-position: 0 180px, 180px 0; }
+    }
+
+    /* Scanlines + vignette + noise */
+    .scanlines::before,
+    .scanlines::after{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+    }
+    .scanlines::before{
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,.04) 0px,
+        rgba(255,255,255,.02) 1px,
+        rgba(0,0,0,0) 3px,
+        rgba(0,0,0,0) 6px
+      );
+      mix-blend-mode: overlay;
+      opacity:.25;
+      animation: scan 6s linear infinite;
+    }
+    @keyframes scan{
+      0%{ transform: translateY(-8%); }
+      100%{ transform: translateY(8%); }
+    }
+    .scanlines::after{
+      background:
+        radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%),
+        linear-gradient(180deg, rgba(0,255,213,.06), transparent 20%, transparent 70%, rgba(255,43,214,.06));
+      opacity:.9;
+    }
+
+    /* Floating particles */
+    .particles{
+      position:fixed; inset:0;
+      pointer-events:none;
+      opacity:.55;
+      filter: drop-shadow(0 0 8px rgba(0,255,213,.12));
+    }
+    .dot{
+      position:absolute;
+      width:2px; height:2px;
+      background: rgba(0,255,213,.85);
+      border-radius: 2px;
+      animation: float 7s linear infinite;
+      opacity:.5;
+    }
+    @keyframes float{
+      0%{ transform: translateY(20px); opacity:.0; }
+      10%{ opacity:.55; }
+      100%{ transform: translateY(-120vh); opacity:.0; }
+    }
+
+    .wrap{
+      position:relative;
+      height:100%;
+      display:grid;
+      place-items:center;
+      padding: 24px;
+    }
+
+    .panel{
+      width:min(960px, 100%);
+      border: 1px solid rgba(0,255,213,.22);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(6,12,20,.65), rgba(4,8,14,.55));
+      box-shadow: 0 0 0 1px rgba(255,43,214,.10) inset, var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+
+    /* top bar */
+    .bar{
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(0,255,213,.18);
+      background: linear-gradient(90deg, rgba(0,255,213,.10), rgba(255,43,214,.06));
+    }
+    .lights{ display:flex; gap:8px; align-items:center; }
+    .lamp{
+      width:10px;height:10px;border-radius:50%;
+      background: rgba(255,255,255,.18);
+      box-shadow: 0 0 14px rgba(255,255,255,.12);
+    }
+    .lamp:nth-child(1){ background: rgba(255,51,85,.65); box-shadow: 0 0 16px rgba(255,51,85,.35);}
+    .lamp:nth-child(2){ background: rgba(255,204,0,.65); box-shadow: 0 0 16px rgba(255,204,0,.25);}
+    .lamp:nth-child(3){ background: rgba(0,255,213,.65); box-shadow: 0 0 16px rgba(0,255,213,.28);}
+    .status{
+      font-size:12px;
+      letter-spacing:.14em;
+      color: rgba(201,248,255,.9);
+      text-transform: uppercase;
+    }
+    .status b{ color: var(--neon); }
+
+    .content{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 0;
+      min-height: 420px;
+    }
+    @media (max-width: 860px){
+      .content{ grid-template-columns: 1fr; }
+      .right{ border-left: none !important; border-top: 1px solid rgba(0,255,213,.12); }
+    }
+
+    .left{
+      padding: 28px 26px 24px;
+      position:relative;
+    }
+
+    /* Glitch Title */
+    .glitch{
+      position:relative;
+      display:inline-block;
+      font-size: clamp(34px, 4.8vw, 56px);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text);
+      text-shadow:
+        0 0 18px rgba(0,255,213,.25),
+        0 0 32px rgba(255,43,214,.12);
+      margin: 8px 0 12px;
+    }
+    .glitch::before,
+    .glitch::after{
+      content: attr(data-text);
+      position:absolute;
+      left:0; top:0;
+      width:100%;
+      overflow:hidden;
+      clip-path: inset(0 0 0 0);
+      opacity:.85;
+    }
+    .glitch::before{
+      transform: translate(2px, 0);
+      color: var(--neon2);
+      text-shadow: 0 0 16px rgba(255,43,214,.32);
+      animation: glitchA 2.2s infinite linear alternate-reverse;
+    }
+    .glitch::after{
+      transform: translate(-2px, 0);
+      color: var(--neon);
+      text-shadow: 0 0 16px rgba(0,255,213,.28);
+      animation: glitchB 2.0s infinite linear alternate-reverse;
+    }
+    @keyframes glitchA{
+      0%{ clip-path: inset(10% 0 80% 0); }
+      10%{ clip-path: inset(55% 0 18% 0); }
+      20%{ clip-path: inset(30% 0 52% 0); }
+      30%{ clip-path: inset(74% 0 8% 0); }
+      40%{ clip-path: inset(22% 0 58% 0); }
+      50%{ clip-path: inset(64% 0 20% 0); }
+      60%{ clip-path: inset(12% 0 70% 0); }
+      70%{ clip-path: inset(48% 0 30% 0); }
+      80%{ clip-path: inset(80% 0 6% 0); }
+      90%{ clip-path: inset(6% 0 84% 0); }
+      100%{ clip-path: inset(38% 0 40% 0); }
+    }
+    @keyframes glitchB{
+      0%{ clip-path: inset(78% 0 8% 0); }
+      12%{ clip-path: inset(14% 0 64% 0); }
+      24%{ clip-path: inset(62% 0 22% 0); }
+      36%{ clip-path: inset(26% 0 52% 0); }
+      48%{ clip-path: inset(82% 0 6% 0); }
+      60%{ clip-path: inset(44% 0 34% 0); }
+      72%{ clip-path: inset(8% 0 78% 0); }
+      84%{ clip-path: inset(56% 0 18% 0); }
+      100%{ clip-path: inset(30% 0 50% 0); }
+    }
+
+    .badgeRow{
+      display:flex; flex-wrap:wrap; gap:10px;
+      margin: 10px 0 18px;
+    }
+    .badge{
+      font-size:12px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,255,213,.26);
+      background: rgba(0,255,213,.06);
+      color: rgba(201,248,255,.92);
+      box-shadow: 0 0 18px rgba(0,255,213,.08);
+      letter-spacing:.08em;
+      text-transform: uppercase;
+    }
+    .badge.warn{
+      border-color: rgba(255,204,0,.35);
+      background: rgba(255,204,0,.06);
+      box-shadow: 0 0 18px rgba(255,204,0,.08);
+    }
+    .badge.danger{
+      border-color: rgba(255,51,85,.35);
+      background: rgba(255,51,85,.06);
+      box-shadow: 0 0 18px rgba(255,51,85,.10);
+    }
+
+    .desc{
+      color: rgba(201,248,255,.82);
+      line-height:1.65;
+      font-size: 14px;
+      max-width: 62ch;
+      margin: 0 0 18px;
+    }
+
+    .actions{
+      display:flex; flex-wrap:wrap; gap:12px;
+      margin-top: 16px;
+    }
+    .btn{
+      cursor:pointer;
+      border: 1px solid rgba(0,255,213,.35);
+      background: linear-gradient(180deg, rgba(0,255,213,.16), rgba(0,255,213,.06));
+      color: rgba(201,248,255,.95);
+      padding: 11px 14px;
+      border-radius: 12px;
+      letter-spacing:.10em;
+      text-transform: uppercase;
+      font-size:12px;
+      box-shadow: 0 0 0 1px rgba(255,43,214,.10) inset, 0 0 22px rgba(0,255,213,.12);
+      transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+      user-select:none;
+    }
+    .btn:hover{
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+      box-shadow: 0 0 0 1px rgba(255,43,214,.14) inset, 0 0 28px rgba(0,255,213,.18);
+    }
+    .btn:active{ transform: translateY(0); }
+    .btn.secondary{
+      border-color: rgba(255,43,214,.35);
+      background: linear-gradient(180deg, rgba(255,43,214,.14), rgba(255,43,214,.05));
+      box-shadow: 0 0 0 1px rgba(0,255,213,.10) inset, 0 0 22px rgba(255,43,214,.12);
+    }
+
+    .right{
+      padding: 18px 18px 16px;
+      border-left: 1px solid rgba(0,255,213,.12);
+      position:relative;
+    }
+    .terminal{
+      border: 1px solid rgba(0,255,213,.20);
+      border-radius: 14px;
+      background: rgba(0,0,0,.35);
+      box-shadow: 0 0 22px rgba(0,255,213,.08);
+      overflow:hidden;
+    }
+    .termHead{
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,255,213,.12);
+      background: linear-gradient(90deg, rgba(0,255,213,.08), rgba(255,43,214,.05));
+      font-size:12px;
+      letter-spacing:.12em;
+      text-transform: uppercase;
+      color: rgba(201,248,255,.85);
+    }
+    .termBody{
+      padding: 12px;
+      height: 290px;
+      overflow:auto;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: rgba(201,248,255,.86);
+    }
+    .termBody::-webkit-scrollbar{ width:10px; }
+    .termBody::-webkit-scrollbar-thumb{
+      background: rgba(0,255,213,.18);
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,.3);
+    }
+    .line{ display:flex; gap:10px; white-space:pre-wrap; word-break:break-word; }
+    .prompt{ color: rgba(0,255,213,.95); }
+    .dim{ color: rgba(123,215,228,.68); }
+    .bad{ color: rgba(255,51,85,.92); }
+    .ok{ color: rgba(0,255,213,.92); }
+    .warnText{ color: rgba(255,204,0,.92); }
+
+    .cursor{
+      display:inline-block;
+      width: 9px;
+      height: 1.1em;
+      transform: translateY(2px);
+      background: rgba(0,255,213,.9);
+      margin-left: 4px;
+      box-shadow: 0 0 10px rgba(0,255,213,.35);
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink{ 50%{ opacity:0; } }
+
+    /* Subtle flicker */
+    .flicker{
+      animation: flicker 5.2s infinite;
+    }
+    @keyframes flicker{
+      0%, 100%{ opacity: 1; }
+      92%{ opacity: 1; }
+      93%{ opacity: .65; }
+      94%{ opacity: 1; }
+      96%{ opacity: .85; }
+      97%{ opacity: 1; }
+    }
+
+    /* Noise overlay using CSS */
+    .noise{
+      position:fixed; inset:0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+      opacity:.05;
+      mix-blend-mode: overlay;
+      pointer-events:none;
+      animation: noiseMove .8s steps(2) infinite;
+    }
+    @keyframes noiseMove{
+      0%{ transform: translate(0,0); }
+      25%{ transform: translate(-2%, 1%); }
+      50%{ transform: translate(1%, -2%); }
+      75%{ transform: translate(2%, 2%); }
+      100%{ transform: translate(0,0); }
+    }
+
+    /* Small footer hint */
+    .foot{
+      padding: 12px 18px;
+      border-top: 1px solid rgba(0,255,213,.12);
+      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      font-size:12px;
+      color: rgba(123,215,228,.75);
+    }
+    .tag{
+      color: rgba(0,255,213,.9);
+      letter-spacing:.10em;
+      text-transform: uppercase;
+    }
+
+    /* “glow frame corners” */
+    .panel::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(120px 120px at 0% 0%, rgba(0,255,213,.14), transparent 60%),
+        radial-gradient(120px 120px at 100% 0%, rgba(255,43,214,.12), transparent 60%),
+        radial-gradient(140px 140px at 0% 100%, rgba(255,204,0,.10), transparent 60%),
+        radial-gradient(160px 160px at 100% 100%, rgba(0,255,213,.10), transparent 65%);
+      pointer-events:none;
+      opacity:.9;
+    }
+
+    /* Hidden data stream on left */
+    .stream{
+      position:absolute;
+      inset: 0;
+      overflow:hidden;
+      pointer-events:none;
+      opacity:.22;
+      mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 80%, transparent 100%);
+    }
+    .stream pre{
+      margin:0;
+      font-size: 11px;
+      line-height: 1.35;
+      color: rgba(0,255,213,.9);
+      transform: translateY(0);
+      animation: stream 8s linear infinite;
+      padding: 18px 22px;
+    }
+    @keyframes stream{
+      0%{ transform: translateY(12%); }
+      100%{ transform: translateY(-18%); }
+    }
+  </style>
+</head>
+<body class="scanlines">
+  <div class="grid"></div>
+  <div class="noise"></div>
+
+  <div class="particles" id="particles"></div>
+
+  <main class="wrap">
+    <section class="panel flicker" role="region" aria-label="Cyberpunk error panel">
+      <div class="bar">
+        <div class="lights" aria-hidden="true">
+          <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+        </div>
+        <div class="status">NODE: <b>EDGE-07</b> • SIGNAL: <b id="signal">SYNC</b></div>
+      </div>
+
+      <div class="content">
+        <div class="left">
+          <div class="stream" aria-hidden="true">
+            <pre id="streamText"></pre>
+          </div>
+
+          <div class="badgeRow">
+            <span class="badge danger">ERROR • 404</span>
+            <span class="badge warn">SECURITY LOCK</span>
+            <span class="badge">TRACE ACTIVE</span>
+          </div>
+
+          <h1 class="glitch" data-text="ACCESS DENIED">ACCESS DENIED</h1>
+
+          <p class="desc">
+            The page you’re trying to reach is not available or has been moved behind an encrypted gateway.
+            Your request triggered a security protocol. Re-route to a safe node or return to base.
+          </p>
+
+          <div class="actions">
+            <button class="btn" id="btnHome">Return Home</button>
+            <button class="btn secondary" id="btnRetry">Retry Link</button>
+            <button class="btn" id="btnCopy">Copy Error ID</button>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="terminal" aria-label="terminal log">
+            <div class="termHead">
+              <span>TERMINAL • /var/log/security</span>
+              <span class="dim" id="clock">--:--:--</span>
+            </div>
+            <div class="termBody" id="term">
+              <div class="line"><span class="prompt">root@edge-07</span><span class="dim">:</span><span class="dim">~$</span> initiating route check<span class="cursor"></span></div>
+              <div class="line dim">[sys] loading network map…</div>
+              <div class="line dim">[sys] verifying token…</div>
+              <div class="line warnText">[warn] anomaly detected in request signature</div>
+              <div class="line bad">[deny] unauthorized endpoint • status: 404</div>
+              <div class="line dim">[hint] try: return home / retry / copy trace id</div>
+              <div class="line"><span class="ok">[ok]</span> session contained • audit saved</div>
+              <div class="line dim">---------------------------------------------</div>
+              <div class="line dim" id="traceLine">TRACE_ID: ----</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot">
+        <div><span class="tag">CYBERNET</span> • protocol v3.7 • checksum <span id="checksum">----</span></div>
+        <div class="dim">Press <span class="tag">R</span> to retry • <span class="tag">H</span> for home • <span class="tag">C</span> copy id</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // --- Helpers
+    const $ = (sel) => document.querySelector(sel);
+
+    function randHex(len=8){
+      const chars = "0123456789abcdef";
+      let out = "";
+      for(let i=0;i<len;i++) out += chars[(Math.random()*chars.length)|0];
+      return out;
+    }
+
+    // --- Dynamic IDs
+    const trace = `ERR-${randHex(4).toUpperCase()}-${randHex(4).toUpperCase()}-${Date.now().toString(16).slice(-6).toUpperCase()}`;
+    $("#traceLine").textContent = `TRACE_ID: ${trace}`;
+    $("#checksum").textContent = randHex(12);
+
+    // --- Clock
+    function tick(){
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      const ss = String(d.getSeconds()).padStart(2,"0");
+      $("#clock").textContent = `${hh}:${mm}:${ss}`;
+    }
+    setInterval(tick, 500); tick();
+
+    // --- Fake signal pulse
+    const signalEl = $("#signal");
+    setInterval(() => {
+      signalEl.textContent = Math.random() > 0.15 ? "SYNC" : "JAM";
+      signalEl.style.color = (signalEl.textContent === "SYNC") ? "var(--neon)" : "var(--danger)";
+    }, 1200);
+
+    // --- Particles
+    const particles = $("#particles");
+    const DOTS = 46;
+    for(let i=0;i<DOTS;i++){
+      const d = document.createElement("div");
+      d.className = "dot";
+      d.style.left = (Math.random()*100).toFixed(2) + "%";
+      d.style.top  = (Math.random()*100).toFixed(2) + "%";
+      d.style.opacity = (0.15 + Math.random()*0.6).toFixed(2);
+      d.style.animationDuration = (5 + Math.random()*7).toFixed(2) + "s";
+      d.style.animationDelay = (-Math.random()*8).toFixed(2) + "s";
+      particles.appendChild(d);
+    }
+
+    // --- Stream text (matrix-ish dump)
+    const glyphs = "01ABCDEFabcdef#$%&*+=-_/\\|";
+    function makeStreamLines(lines=38, width=62){
+      let out = "";
+      for(let i=0;i<lines;i++){
+        let line = "";
+        for(let j=0;j<width;j++){
+          line += glyphs[(Math.random()*glyphs.length)|0];
+        }
+        out += line + "\n";
+      }
+      return out;
+    }
+    const streamEl = $("#streamText");
+    streamEl.textContent = makeStreamLines();
+    setInterval(()=> { streamEl.textContent = makeStreamLines(); }, 1600);
+
+    // --- Terminal log add
+    const term = $("#term");
+    function addLine(text, cls="dim"){
+      const row = document.createElement("div");
+      row.className = "line " + cls;
+      row.textContent = text;
+      term.appendChild(row);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function glitchBurst(){
+      document.body.style.filter = "brightness(1.08) contrast(1.12) saturate(1.06)";
+      setTimeout(()=> document.body.style.filter = "", 90);
+      addLine("[sys] re-sync attempt…", "dim");
+      if(Math.random() > 0.45){
+        addLine("[deny] endpoint still blocked", "bad");
+      } else {
+        addLine("[warn] unstable route • try again", "warnText");
+      }
+    }
+
+    // --- Buttons
+    $("#btnHome").addEventListener("click", () => {
+      addLine("[nav] redirecting to / …", "ok");
+      // change to your real home:
+      window.location.href = "/";
+    });
+
+    $("#btnRetry").addEventListener("click", () => {
+      glitchBurst();
+      setTimeout(()=> location.reload(), 450);
+    });
+
+    $("#btnCopy").addEventListener("click", async () => {
+      try{
+        await navigator.clipboard.writeText(trace);
+        addLine(`[ok] copied TRACE_ID: ${trace}`, "ok");
+      }catch(e){
+        addLine("[warn] clipboard blocked by browser", "warnText");
+      }
+    });
+
+    // --- Keyboard shortcuts
+    window.addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+      if(k === "r") $("#btnRetry").click();
+      if(k === "h") $("#btnHome").click();
+      if(k === "c") $("#btnCopy").click();
+    });
+
+    // --- Occasional micro-glitch
+    setInterval(()=>{
+      if(Math.random() < 0.22) glitchBurst();
+    }, 2200);
+  </script>
+</body>
+</html>
